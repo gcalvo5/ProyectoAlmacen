@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "474246884512",
+    "project_id": "proyecto-almacen-879aa",
+    "storage_bucket": "proyecto-almacen-879aa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:474246884512:android:915c3e7a4694271fcf6dc5",
+        "android_client_info": {
+          "package_name": "com.example.proyectoalmacen"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1NcoTCrqrFsNKe5G9_4ovaw1FK648jhg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
