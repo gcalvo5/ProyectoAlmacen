@@ -16,8 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class RecogidaReopsitory @Inject constructor(private val expedicionRepository: ExpedicionRepository) {
     //Para cambiar a coger de futuro repositorio de clientes y futuro repositorio de usuarios
-    private val clienteRecogida = Cliente(idCliente = 1, nombreCliente = "Univar")
-    private val clienteRecogida2 = Cliente(idCliente = 2, nombreCliente = "Proquimia")
+    private val clienteRecogida = Cliente(idCliente = 155, nombreCliente = "Univar")
+    private val clienteRecogida2 = Cliente(idCliente = 233, nombreCliente = "Proquimia")
     private val conductor = Usuario(numUsuario = 2, nombre = "Juan", tipoUsuario = TipoUsuario.CHOFER)
 
     private val _recogidas = MutableStateFlow<List<Recogida>>(

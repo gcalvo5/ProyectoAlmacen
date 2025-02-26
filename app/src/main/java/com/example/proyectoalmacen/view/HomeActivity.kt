@@ -4,6 +4,7 @@ import CustomTextView
 import TextViewConfig
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme.colorScheme
@@ -50,10 +52,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,19 +73,25 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.proyectoalmacen.ProyectoAlmacenAplication.Companion.preferens
 import com.example.proyectoalmacen.R
 import com.example.proyectoalmacen.core.navigation.NavigationWrapper
+import com.example.proyectoalmacen.model.DataClasses.Bulto
 import com.example.proyectoalmacen.model.DataClasses.Estadillo
+import com.example.proyectoalmacen.model.DataClasses.Expedicion
 import com.example.proyectoalmacen.model.DataClasses.HojaCarga
 import com.example.proyectoalmacen.model.DataClasses.Plazas
 import com.example.proyectoalmacen.model.States.EstadilloState
 import com.example.proyectoalmacen.model.States.ExpedicionState
+import com.example.proyectoalmacen.model.States.UiState
 import com.example.proyectoalmacen.ui.theme.ProyectoAlmacenTheme
 import com.example.proyectoalmacen.view.carga.CreateCargaScreen
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomComparationText
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomIconButton
+import com.example.proyectoalmacen.view.commons.basicComponents.CustomLoader
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomTopBar
 import com.example.proyectoalmacen.view.estadillo.CreateEstadilloScreen
+import com.example.proyectoalmacen.viewmodel.BultoViewModel
 import com.example.proyectoalmacen.viewmodel.EstadilloViewModel
 import com.example.proyectoalmacen.viewmodel.ExpedicionViewModel
+import com.example.proyectoalmacen.viewmodel.ExpedicionesQueryType
 import com.example.proyectoalmacen.viewmodel.HojaCargaViewModel
 import com.example.proyectoalmacen.viewmodel.PlazasViewModel
 import com.example.proyectoalmacen.viewmodel.UsuarioViewModel
@@ -93,7 +104,6 @@ class HomeActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val estadilloViewModel by viewModels<EstadilloViewModel>()
         enableEdgeToEdge()
         //Load initial configuracions
         //TO DO Load user and confugure based on that
@@ -110,14 +120,9 @@ class HomeActivity : ComponentActivity() {
         setContent {
             ProyectoAlmacenTheme {
                 Firebase.crashlytics.log("HomeActivityEntered")
-                NavigationWrapper(estadilloViewModel)
+                NavigationWrapper()
             }
         }
-    }
-
-    fun addEstadilloButton(){
-        Firebase.crashlytics.log("addEstadilloButton")
-
     }
 }
 
@@ -132,7 +137,7 @@ data class ItemData(val id: Int, val name: String, val description: String)
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun HomeScreen(navController: NavController,estadilloViewModel: EstadilloViewModel, navigateToEstadillo: (numEstadillo: Int, nombreChofer: String) -> Unit = { numEstadillo: Int, nombreChofer: String -> }, navigateToRepaso: (numPlaza: Int) -> Unit = { numPlaza: Int -> }, navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
+fun HomeScreen(navController: NavController, bultoViewModel: BultoViewModel = hiltViewModel(),expedicionViewModel: ExpedicionViewModel = hiltViewModel(), estadilloViewModel: EstadilloViewModel = hiltViewModel(), navigateToEstadillo: (numEstadillo: Int, nombreChofer: String) -> Unit = { numEstadillo: Int, nombreChofer: String -> }, navigateToRepaso: (numPlaza: Int) -> Unit = { numPlaza: Int -> }, navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     var selectedTabIndex by remember {
         mutableIntStateOf(0)
@@ -211,10 +216,10 @@ fun HomeScreen(navController: NavController,estadilloViewModel: EstadilloViewMod
                     .fillMaxSize()
             ) {
                 when (selectedTabIndex) {
-                    0 -> Tab1Content(estadilloViewModel)
-                    1 -> Tab2Content(estadilloViewModel, navigateToEstadillo)
+                    0 -> Tab1Content()
+                    1 -> Tab2Content(navigateToEstadillo = navigateToEstadillo)
                     2 -> Tab3Content(navigateToRepaso)
-                    3 -> Tab4Content(navigateToCarga)
+                    3 -> Tab4Content(navigateToCarga = navigateToCarga)
                 }
             }
 
@@ -222,9 +227,25 @@ fun HomeScreen(navController: NavController,estadilloViewModel: EstadilloViewMod
 }
 
 @Composable
-fun Tab1Content(estadilloViewModel: EstadilloViewModel) {
-    val estadillosState: EstadilloState = estadilloViewModel.estadilloState
-
+fun Tab1Content(estadilloViewModel: EstadilloViewModel = hiltViewModel()) {
+    val uiStateEstadillo by estadilloViewModel.estadillosList.collectAsState()
+    var loadingEstadillo by remember { mutableStateOf(false) }
+    val estadillos by remember {
+        derivedStateOf {
+            (uiStateEstadillo as? UiState.Success<List<Estadillo>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateEstadillo) {
+        is UiState.Loading -> {
+            loadingEstadillo = true
+            CustomLoader(loadingEstadillo)
+        }
+        is UiState.Success -> {
+            Log.i("Bultos Success", "${(uiStateEstadillo as UiState.Success<*>).data}")
+            loadingEstadillo = false
+        }
+        is UiState.Error -> Log.e("Bultos Error,", (uiStateEstadillo as UiState.Error).message)
+    }
     // Use a Box to create an overlay effect
     Box(modifier = Modifier.fillMaxSize()) {
         // Main content (always visible)
@@ -257,7 +278,7 @@ fun Tab1Content(estadilloViewModel: EstadilloViewModel) {
                             .height(200.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(estadilloViewModel.estadilloState.estadillos) { item ->
+                        items(estadillos) { item ->
                             ItemRow(item = item)
                         }
                     }
@@ -289,7 +310,25 @@ fun ItemRow(item: Estadillo) {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun Tab2Content(estadilloViewModel: EstadilloViewModel, navigateToEstadillo: (numEstadillo: Int, nombreChofer: String) -> Unit = { numEstadillo: Int, nombreChofer: String -> }) {
+fun Tab2Content(estadilloViewModel: EstadilloViewModel = hiltViewModel(), navigateToEstadillo: (numEstadillo: Int, nombreChofer: String) -> Unit = { numEstadillo: Int, nombreChofer: String -> }) {
+    val uiStateEstadillo by estadilloViewModel.estadillosList.collectAsState()
+    var loadingEstadillo by remember { mutableStateOf(false) }
+    val estadillos by remember {
+        derivedStateOf {
+            (uiStateEstadillo as? UiState.Success<List<Estadillo>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateEstadillo) {
+        is UiState.Loading -> {
+            loadingEstadillo = true
+            CustomLoader(loadingEstadillo)
+        }
+        is UiState.Success ->{
+            loadingEstadillo = false
+            Log.i("Estadillo Success", "${(uiStateEstadillo as UiState.Success<*>).data}")
+        }
+        is UiState.Error -> Log.e("Estadillo Error,", (uiStateEstadillo as UiState.Error).message)
+    }
     Column(
         modifier = Modifier
             .fillMaxSize(),
@@ -305,7 +344,7 @@ fun Tab2Content(estadilloViewModel: EstadilloViewModel, navigateToEstadillo: (nu
             .fillMaxSize()
             .padding(10.dp)
         ) {
-            items(estadilloViewModel.estadilloState.estadillos) { item ->
+            items(estadillos) { item ->
                 ItemRowListaEstadillosGeneral(item = item, navigateToEstadillo)
                 }
             }
@@ -406,9 +445,26 @@ fun Tab2Content(estadilloViewModel: EstadilloViewModel, navigateToEstadillo: (nu
     }
 
     @Composable
-    fun Tab3Content(navigateToRepaso: (numPlaza: Int) -> Unit) {
+    fun Tab3Content(navigateToRepaso: (numPlaza: Int) -> Unit, expedicionViewModel: ExpedicionViewModel = hiltViewModel()) {
+        val uiStateExpedicion by expedicionViewModel.expedicionList.collectAsState()
+        var loadingExpedicion by remember { mutableStateOf(false) }
+        val expediciones by remember {
+            derivedStateOf {
+                (uiStateExpedicion as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
+            }
+        }
+        when (uiStateExpedicion) {
+            is UiState.Loading -> {
+                loadingExpedicion = true
+                CustomLoader(loadingExpedicion)
+            }
+            is UiState.Success -> {
+                loadingExpedicion = false
+                Log.i("Expediciones Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
+            }
+            is UiState.Error -> Log.e("Expediciones Error,", (uiStateExpedicion as UiState.Error).message)
+        }
         var plazasViewModel: PlazasViewModel = hiltViewModel()
-        var expedicionViewModel: ExpedicionViewModel = hiltViewModel()
         val plazasState = plazasViewModel.plazasState
         Column(
             modifier = Modifier
@@ -416,8 +472,14 @@ fun Tab2Content(estadilloViewModel: EstadilloViewModel, navigateToEstadillo: (nu
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val bultosTotales = expedicionViewModel.getExpdicionesBultosConfirmadosTotales() + expedicionViewModel.getExpdicionesBultosRepasadosTotales()
-            CustomTextView(type = TextViewType.TITLE_AND_SUBTITLE, stringResource(R.string.repaso_por_plazas_text), subtitle = stringResource(R.string.total_repasados_Text, expedicionViewModel.getExpdicionesBultosRepasadosTotales(), bultosTotales))
+            var bultosTotales = 0
+            var bultosRepasadosTotales = 0
+            if (expedicionViewModel.getListNumBultosTotales().isNotEmpty()) {
+                bultosTotales = expedicionViewModel.getListNumBultosTotales()
+                    .get(1) + expedicionViewModel.getListNumBultosTotales().get(2)
+                bultosRepasadosTotales = expedicionViewModel.getListNumBultosTotales().get(2)
+            }
+            CustomTextView(type = TextViewType.TITLE_AND_SUBTITLE, stringResource(R.string.repaso_por_plazas_text), subtitle = stringResource(R.string.total_repasados_Text, bultosRepasadosTotales, bultosTotales))
             Spacer(modifier = Modifier.height(10.dp))
             LazyColumn(modifier = Modifier
                 .fillMaxSize()
@@ -450,14 +512,21 @@ fun ItemRowListaPlazasRepasar(item: Plazas, navigateToRepaso: (numPlaza: Int) ->
                     .fillMaxWidth()
                     .fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
             ) {
+                val coroutineScope = rememberCoroutineScope()
                 CustomTextView(type = TextViewType.SINGLE, mainText = item.nombrePlaza, modifier = Modifier.width(130.dp))
                 Spacer(modifier = Modifier.width(20.dp))
+                var bultosRepasadosPlaza by remember { mutableStateOf(0) }
+                var bultosConfirmadosPlaza by remember { mutableStateOf(0) }
+                if (expedicionViewModel.getListNumBultosTotales().isNotEmpty()) {
+                    bultosRepasadosPlaza =
+                        expedicionViewModel.getListNumBultosTotales(item.codPlazas).get(2)
+                    bultosConfirmadosPlaza =
+                        expedicionViewModel.getListNumBultosTotales(item.codPlazas).get(1)
+                }
                 CustomComparationText(
-                    firstText = expedicionViewModel.getExpedicionesBultosRepasadosByPlazas(item.codPlazas)
+                    firstText = bultosRepasadosPlaza
                         .toString(),
-                    secondText = (expedicionViewModel.getExpedicionesBultosConfirmadosByPlazas(
-                        item.codPlazas
-                    ) + expedicionViewModel.getExpedicionesBultosRepasadosByPlazas(item.codPlazas)).toString(),
+                    secondText = (bultosConfirmadosPlaza + bultosRepasadosPlaza).toString(),
                     modifier = Modifier.width(80.dp),
                     icon = Icons.Filled.Check
                 )
@@ -468,8 +537,7 @@ fun ItemRowListaPlazasRepasar(item: Plazas, navigateToRepaso: (numPlaza: Int) ->
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun Tab4Content(navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
-    val hojasCargaViewModel: HojaCargaViewModel = hiltViewModel()
+fun Tab4Content(hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), expedicionViewModel: ExpedicionViewModel = hiltViewModel(), navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
     Column(
         modifier = Modifier
             .fillMaxSize(),
@@ -531,13 +599,14 @@ fun ItemRowListaHojasCarga(item: HojaCarga, navigateToCarga: (plazas: List<Int>)
                 Spacer(modifier = Modifier.width(5.dp))
                 CustomTextView(type = TextViewType.SINGLE, mainText = item.tiempoCreacion, config = TextViewConfig(mainTextFontSize = 18.sp))
                 Spacer(modifier = Modifier.width(15.dp))
-
-                item.idPlazas.forEach({
-                    bultosTotales += expedicionViewModel.getExpedicionesBultosTotalesByPlazas(it)
-                    bultosCargados += expedicionViewModel.getExpedicionesBultosCargadosByPlazas(it)
-                    plazas += plazasViewModel.getPlazaById(it).nombrePlaza + ", "
-                })
-                plazas = plazas.dropLast(2)
+                if (expedicionViewModel.getListNumBultosTotales().isNotEmpty()) {
+                    item.idPlazas.forEach({
+                        bultosTotales += expedicionViewModel.getListNumBultosTotales(it).get(0)
+                        bultosCargados += expedicionViewModel.getListNumBultosTotales(it).get(3)
+                        plazas += plazasViewModel.getPlazaById(it).nombrePlaza + ", "
+                    })
+                    plazas = plazas.dropLast(2)
+                }
 
                 CustomTextView(type = TextViewType.SINGLE, mainText = stringResource(R.string.bultos_cargados_text), config = TextViewConfig(mainTextFontSize = 18.sp, mainTextColor = colorScheme.tertiary))
                 Spacer(modifier = Modifier.width(5.dp))

@@ -133,7 +133,7 @@ fun DialogoBulto(
                     Icon(icono, "Icono de dialogo", tint = colorScheme.primary)
                     Spacer(modifier = Modifier.height(20.dp))
                     CustomTextView(type = TextViewType.TITLE_AND_SUBTITLE, mainText = texto, subtitle = textoSecundario)
-                    if(expedicion != null){
+                    if(expedicion != null && estadoDialogo != EstadoDialogo.NOENCONTRADO){
                         Spacer(modifier = Modifier.height(20.dp))
                         Card (colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceContainer, contentColor = colorScheme.primary), modifier = Modifier.fillMaxWidth().height(120.dp).padding(5.dp)){
                             Column (verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally){

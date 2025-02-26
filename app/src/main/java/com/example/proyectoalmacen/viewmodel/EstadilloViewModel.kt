@@ -11,9 +11,13 @@ import com.example.proyectoalmacen.model.DataClasses.Estadillo
 import com.example.proyectoalmacen.model.DataClasses.TipoUsuario
 import com.example.proyectoalmacen.model.DataClasses.Usuario
 import com.example.proyectoalmacen.model.States.EstadilloState
+import com.example.proyectoalmacen.model.States.UiState
+import com.example.proyectoalmacen.viewmodel.DataManagers.DataManager
 import com.example.proyectoalmacen.viewmodel.repositories.EstadilloRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -21,42 +25,44 @@ import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
-class EstadilloViewModel @Inject constructor(val estadilloRepository: EstadilloRepository) : ViewModel() {
-    var estadilloState by mutableStateOf(EstadilloState())
-        private set
+class EstadilloViewModel @Inject constructor(private val estadilloRepository: EstadilloRepository, private val dataManager: DataManager) : ViewModel() {
+    val estadillosList = dataManager.estadillosListState
+    val estadillosListFiltred = dataManager.estadillosListStateFiltred
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
 
+    init {
+        loadEstadillosList()
+    }
 
-    init{
+    fun loadEstadillosList() {
         viewModelScope.launch {
-            estadilloRepository.getAllEstadillos().collectLatest { estadillos ->
-                estadilloState = estadilloState.copy(
-                    estadillos = estadillos
-                )
+            estadilloRepository.fetchEstadillos("").collect { state ->
+                dataManager.updateEstadillosList(state)
+                dataManager.updateEstadillosListFiltred(state)
             }
         }
     }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun crearEstadillo(muelle:String, conductor:String){
+    fun loadEstadillosListFiltered() {
         viewModelScope.launch {
-            estadilloState = estadilloState.copy(
-                isLoading = true
-            )
-            estadilloRepository.crearEstadillo(muelle = muelle, conductor = conductor)
-            estadilloState = estadilloState.copy(
-                isLoading = false
-            )
+            estadilloRepository.fetchEstadillos(searchQuery.value).collect { state ->
+                dataManager.updateEstadillosListFiltred(state)
+            }
+            _searchQuery.value = ""
         }
     }
 
-    fun getEstadilloByID(idEstadillo: Int):Estadillo?{
+    fun createEstadillo(muelle:Int, conductor:Usuario){
         viewModelScope.launch {
-            estadilloRepository.getEstadilloByID(idEstadillo).collectLatest { estadillos ->
-                estadilloState = estadilloState.copy(
-                    estadillos = estadillos
-                )
+            estadilloRepository.createEstadillo(muelle, conductor).collect { state ->
+                if (state is UiState.Success) (state as? UiState.Success)?.data?.let { dataManager.addEstadillo(it) }
             }
         }
-        return estadilloState.estadillos.firstOrNull()
+
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+        loadEstadillosListFiltered()
     }
 }

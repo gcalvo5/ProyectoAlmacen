@@ -30,11 +30,11 @@ import com.example.proyectoalmacen.model.DataClasses.Estadillo
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomInputField
 import com.example.proyectoalmacen.view.commons.basicComponents.InputFieldType
 import com.example.proyectoalmacen.viewmodel.EstadilloViewModel
+import com.example.proyectoalmacen.viewmodel.UsuarioViewModel
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun CreateEstadilloScreen(onDismissRequest: () -> Unit, navigateToEstadillo: (numEstadillo: Int, nombreChofer: String) -> Unit) {
-    val estadilloViewModel: EstadilloViewModel = hiltViewModel()
+fun CreateEstadilloScreen(usuarioViewModel: UsuarioViewModel = hiltViewModel(),estadilloViewModel: EstadilloViewModel = hiltViewModel(),onDismissRequest: () -> Unit, navigateToEstadillo: (numEstadillo: Int, nombreChofer: String) -> Unit) {
     var muelleText by remember { mutableStateOf("") }
     var conductorText by remember { mutableStateOf("") }
     Dialog(onDismissRequest = onDismissRequest){
@@ -66,12 +66,15 @@ fun CreateEstadilloScreen(onDismissRequest: () -> Unit, navigateToEstadillo: (nu
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    val conductor = usuarioViewModel.getUsuarioByName(conductorText).firstOrNull()
                     CustomButton(
                         stringResource(R.string.crear_text),
                         onClick = {
-                            estadilloViewModel.crearEstadillo(muelleText, conductorText)
-                            navigateToEstadillo(3, conductorText)
-                                  },
+                            if (conductor != null) {
+                                estadilloViewModel.createEstadillo(muelleText.toInt(), conductor)
+                                navigateToEstadillo(3, conductorText)
+                            }
+                        },
                         backgroundColor = colorScheme.secondary,
                         modifier = Modifier.width(150.dp)
                     )

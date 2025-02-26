@@ -3,6 +3,7 @@ package com.example.proyectoalmacen.view.estadillo
 import CustomTextView
 import TextViewConfig
 import TextViewType
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -37,6 +39,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,9 +56,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.proyectoalmacen.R
+import com.example.proyectoalmacen.model.DataClasses.Estadillo
 import com.example.proyectoalmacen.model.DataClasses.Expedicion
 import com.example.proyectoalmacen.model.DataClasses.Recogida
 import com.example.proyectoalmacen.model.DataClasses.Usuario
+import com.example.proyectoalmacen.model.States.UiState
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomComparationText
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomIconButton
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomInputField
@@ -66,19 +72,30 @@ import com.example.proyectoalmacen.view.commons.basicComponents.RowExpediciones
 import com.example.proyectoalmacen.view.commons.basicComponents.SegmentedButtonOption
 import com.example.proyectoalmacen.viewmodel.EstadilloViewModel
 import com.example.proyectoalmacen.viewmodel.ExpedicionViewModel
+import com.example.proyectoalmacen.viewmodel.ExpedicionesQueryType
 import com.example.proyectoalmacen.viewmodel.RecogidaViewModel
 import com.example.proyectoalmacen.viewmodel.UsuarioViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
 
 @Composable
-fun EstadilloScreen(navController: NavController, idEstadillo: Int, nombreChofer: String){
-    var recogidaViewModel: RecogidaViewModel = hiltViewModel()
-    var estadilloViewModel: EstadilloViewModel = hiltViewModel()
-    var usuarioViewModel: UsuarioViewModel = hiltViewModel()
-
+fun EstadilloScreen(recogidaViewModel: RecogidaViewModel = hiltViewModel(),estadilloViewModel: EstadilloViewModel = hiltViewModel(),usuarioViewModel: UsuarioViewModel = hiltViewModel(),navController: NavController, idEstadillo: Int, nombreChofer: String){
+    val uiStateEstadillo by estadilloViewModel.estadillosList.collectAsState(initial = SharingStarted.WhileSubscribed(5000),
+        context = Dispatchers.Default)
+    val estadillos by remember {
+        derivedStateOf {
+            (uiStateEstadillo as? UiState.Success<List<Estadillo>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateEstadillo) {
+        is UiState.Loading -> CircularProgressIndicator()
+        is UiState.Success<*> -> Log.i("Bultos Success", "${(uiStateEstadillo as UiState.Success<*>).data}")
+        is UiState.Error -> Log.e("Bultos Error,", (uiStateEstadillo as UiState.Error).message)
+    }
+    estadilloViewModel.setSearchQuery(idEstadillo.toString())
     var myTextFieldValue by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    val estadillo = estadilloViewModel.getEstadilloByID(idEstadillo)
     val conductor:Usuario? = usuarioViewModel.getUsuarioByName(nombreChofer).firstOrNull()
     val recogidas = conductor?.let { recogidaViewModel.getRecogidasByIdConductor(it.numUsuario) }
 
@@ -139,9 +156,19 @@ fun EstadilloScreen(navController: NavController, idEstadillo: Int, nombreChofer
 }
 
 @Composable
-fun ItemRowEstadillo(index: Int, item: Recogida, expandedStates: MutableList<Boolean>) {
+fun ItemRowEstadillo(expedicionViewModel: ExpedicionViewModel = hiltViewModel(),index: Int, item: Recogida, expandedStates: MutableList<Boolean>) {
     var iconoDesplegable by remember { mutableStateOf(Icons.Filled.KeyboardArrowDown) }
-    var expedicionViewModel: ExpedicionViewModel = hiltViewModel()
+    val uiStateExpedicion by expedicionViewModel.expedicionListFiltred.collectAsState()
+    val expediciones by remember {
+        derivedStateOf {
+            (uiStateExpedicion as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateExpedicion) {
+        is UiState.Loading -> CircularProgressIndicator()
+        is UiState.Success -> Log.i("Bultos Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
+        is UiState.Error -> Log.e("Bultos Error,", (uiStateExpedicion as UiState.Error).message)
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         CustomIconButton(
             onClick = {
@@ -163,7 +190,8 @@ fun ItemRowEstadillo(index: Int, item: Recogida, expandedStates: MutableList<Boo
             val diccionarioExpediciones: MutableMap<String, MutableList<Expedicion>> = mutableMapOf()
             // Expanded content
             Column {
-                expedicionViewModel.getExpedicionesByIdCliente(item.clienteRecogida.idCliente).forEach() {
+                expedicionViewModel.setSearchQuery(item.clienteRecogida.idCliente.toString(), ExpedicionesQueryType.IDCLIENTE)
+                expediciones.forEach() {
                     if (!listaDeProvinciasActuales.contains(it.provincia)){
                         listaDeProvinciasActuales.add(it.provincia)
                         diccionarioExpediciones.put(it.provincia, mutableListOf(it))

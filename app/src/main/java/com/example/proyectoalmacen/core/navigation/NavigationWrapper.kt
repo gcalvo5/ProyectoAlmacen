@@ -15,11 +15,11 @@ import com.example.proyectoalmacen.viewmodel.EstadilloViewModel
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun NavigationWrapper(estadilloViewModel: EstadilloViewModel){
+fun NavigationWrapper(){
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = Home) {
         composable<Home> {
-            HomeScreen(navController = navController, estadilloViewModel,
+            HomeScreen(navController = navController,
             navigateToEstadillo = {
                 numEstadillo: Int, nombreChofer: String ->
                 navController.navigate(
@@ -32,7 +32,7 @@ fun NavigationWrapper(estadilloViewModel: EstadilloViewModel){
 
         composable<Estadillo> { backStackEntry ->
             val  estadillo:Estadillo = backStackEntry.toRoute<Estadillo>()
-            EstadilloScreen(navController = navController, estadillo.numEstadillo, estadillo.nombreChofer)
+            EstadilloScreen(navController = navController, idEstadillo = estadillo.numEstadillo, nombreChofer =  estadillo.nombreChofer)
         }
 
         composable<Repaso> { backStackEntry ->

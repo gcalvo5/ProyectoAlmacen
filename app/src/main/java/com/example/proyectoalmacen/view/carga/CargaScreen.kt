@@ -1,5 +1,6 @@
 package com.example.proyectoalmacen.view.carga
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,11 +15,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +40,7 @@ import com.example.proyectoalmacen.R
 import com.example.proyectoalmacen.model.DataClasses.Bulto
 import com.example.proyectoalmacen.model.DataClasses.EstadoBulto
 import com.example.proyectoalmacen.model.DataClasses.Expedicion
+import com.example.proyectoalmacen.model.States.UiState
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomIconButton
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomInputField
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomTopBar
@@ -47,23 +52,43 @@ import com.example.proyectoalmacen.view.commons.basicComponents.RowExpedicionTyp
 import com.example.proyectoalmacen.view.commons.basicComponents.RowExpediciones
 import com.example.proyectoalmacen.viewmodel.BultoViewModel
 import com.example.proyectoalmacen.viewmodel.ExpedicionViewModel
+import com.example.proyectoalmacen.viewmodel.ExpedicionesQueryType
 import com.example.proyectoalmacen.viewmodel.PlazasViewModel
 
 @Composable
-fun CargaScreen(navController: NavController, plazas:List<Int>){
+fun CargaScreen(navController: NavController, plazas:List<Int>, bultoViewModel: BultoViewModel = hiltViewModel(), expedicionViewModel: ExpedicionViewModel = hiltViewModel()){
     var showDialog by remember { mutableStateOf(false) }
     var estadoDialogo: EstadoDialogo = EstadoDialogo.ENCONTRADO
     val focusRequester = remember { FocusRequester() }
     var myTextFieldValue by remember { mutableStateOf("") }
-    var bultoViewModel: BultoViewModel = hiltViewModel()
-    var bulto: Bulto? = null
-    var expedicion: Expedicion? = null
     var dialogTimer by remember { mutableStateOf(0L) }
     val dialogDelay = 500L
-    var expedicionViewModel: ExpedicionViewModel = hiltViewModel()
+
     val expandedStates = remember { mutableStateListOf<Boolean>().apply {
         addAll(List(plazas.size) { false })
     } }
+    val uiStateBultos by bultoViewModel.bultosListFiltred.collectAsState()
+    val bultos by remember {
+        derivedStateOf {
+            (uiStateBultos as? UiState.Success<List<Bulto>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateBultos) {
+        is UiState.Loading -> CircularProgressIndicator()
+        is UiState.Success -> Log.i("Bultos Success", "${(uiStateBultos as UiState.Success<List<Bulto>>).data}")
+        is UiState.Error -> Log.e("Bultos Error,", (uiStateBultos as UiState.Error).message)
+    }
+    val uiStateExpedicion by expedicionViewModel.expedicionListFiltred.collectAsState()
+    val expediciones by remember {
+        derivedStateOf {
+            (uiStateExpedicion as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateExpedicion) {
+        is UiState.Loading -> CircularProgressIndicator()
+        is UiState.Success -> Log.i("Bultos Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
+        is UiState.Error -> Log.e("Bultos Error,", (uiStateExpedicion as UiState.Error).message)
+    }
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.imePadding(),
@@ -86,27 +111,26 @@ fun CargaScreen(navController: NavController, plazas:List<Int>){
                     modifiedText
                 }
                 myTextFieldValue = limitedString
-                bulto = bultoViewModel.getBultosByIdBulto(myTextFieldValue).firstOrNull()
+                bultoViewModel.setSearchQuery(myTextFieldValue)
 
-                if(bulto != null){
-                    estadoDialogo = if(bulto!!.estadoBulto == EstadoBulto.CARGADO) EstadoDialogo.REPETIDO else EstadoDialogo.ENCONTRADO
+                if(bultos.firstOrNull() != null){
+                    estadoDialogo = if(bultos.first().estadoBulto == EstadoBulto.CARGADO) EstadoDialogo.REPETIDO else EstadoDialogo.ENCONTRADO
                 }else{
                     estadoDialogo = EstadoDialogo.NOENCONTRADO
                 }
                 showDialog = true
-                expedicion = null
             })
-            if(bulto != null){
-                expedicion = expedicionViewModel.getExpedicionById(bulto!!.idExpedicion)
+            if(bultos.firstOrNull() != null){
+                expedicionViewModel.setSearchQuery(bultos.first().idExpedicion, ExpedicionesQueryType.ID)
                 val posicionExpandida = expandedStates.indexOf(true)
 
-                if(posicionExpandida != -1 && expedicion != null && expedicion!!.codPlaza != plazas[posicionExpandida]) estadoDialogo = EstadoDialogo.EQUIVOCADO
+                if(posicionExpandida != -1 && expediciones.firstOrNull() != null && expediciones.first().codPlaza != plazas[posicionExpandida]) estadoDialogo = EstadoDialogo.EQUIVOCADO
             }
             val currentTime = System.currentTimeMillis()
             if(showDialog && currentTime - dialogTimer > dialogDelay){
-                DialogoBulto(onDismissRequest = {showDialog = false}, estadoDialogo = estadoDialogo, expedicion = expedicion, dialogoBultoType = DialogoBultoType.CARGA)
+                DialogoBulto(onDismissRequest = {showDialog = false}, estadoDialogo = estadoDialogo, expedicion = expediciones.firstOrNull(), dialogoBultoType = DialogoBultoType.CARGA)
             }
-            if(bulto!= null && (bulto!!.estadoBulto == EstadoBulto.DESCARGADO || bulto!!.estadoBulto == EstadoBulto.REPASADO) && estadoDialogo != EstadoDialogo.EQUIVOCADO) bultoViewModel.updateBulto(bulto!!.copy(estadoBulto = EstadoBulto.CARGADO))
+            if(bultos.firstOrNull() != null && (bultos.first().estadoBulto == EstadoBulto.DESCARGADO || bultos.first().estadoBulto == EstadoBulto.REPASADO) && estadoDialogo != EstadoDialogo.EQUIVOCADO) bultoViewModel.updateBulto(bultos.first().copy(estadoBulto = EstadoBulto.CARGADO))
             Spacer(modifier = Modifier.height(10.dp))
             // Request focus when the composable is launched
             LaunchedEffect(Unit) {
@@ -129,11 +153,20 @@ fun CargaScreen(navController: NavController, plazas:List<Int>){
 }
 
 @Composable
-fun itemRowProvinciascarga(item: Int, index: Int, expandedStates: MutableList<Boolean>){
+fun itemRowProvinciascarga(plazasViewModel: PlazasViewModel = hiltViewModel(),expedicionViewModel: ExpedicionViewModel = hiltViewModel(),item: Int, index: Int, expandedStates: MutableList<Boolean>){
     var iconoDesplegable by remember { mutableStateOf(Icons.Filled.KeyboardArrowDown) }
-    val expedicionViewModel: ExpedicionViewModel = hiltViewModel()
-    val plazasViewModel: PlazasViewModel = hiltViewModel()
     val plazaName = plazasViewModel.getPlazaById(item).nombrePlaza
+    val uiStateExpedicion by expedicionViewModel.expedicionListFiltred.collectAsState()
+    val expediciones by remember {
+        derivedStateOf {
+            (uiStateExpedicion as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateExpedicion) {
+        is UiState.Loading -> CircularProgressIndicator()
+        is UiState.Success -> Log.i("Bultos Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
+        is UiState.Error -> Log.e("Bultos Error,", (uiStateExpedicion as UiState.Error).message)
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         CustomIconButton(
             onClick = {
@@ -158,7 +191,8 @@ fun itemRowProvinciascarga(item: Int, index: Int, expandedStates: MutableList<Bo
         if (expandedStates[index]) {
             // Expanded content
             Column {
-                expedicionViewModel.getExpedicionesByPlazas(item).forEach() {
+                expedicionViewModel.setSearchQuery(item.toString(), ExpedicionesQueryType.CODPLAZA)
+                expediciones.forEach() {
                     RowExpediciones(it, type = RowExpedicionType.CARGAR)
                 }
             }
