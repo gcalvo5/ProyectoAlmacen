@@ -5,6 +5,7 @@ import com.example.proyectoalmacen.model.DataClasses.Bulto
 import com.example.proyectoalmacen.model.DataClasses.Estadillo
 import com.example.proyectoalmacen.model.DataClasses.EstadoBulto
 import com.example.proyectoalmacen.model.DataClasses.Expedicion
+import com.example.proyectoalmacen.model.DataClasses.HojaCarga
 import com.example.proyectoalmacen.model.States.UiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,7 @@ class DataManager @Inject constructor(private val externalScope: CoroutineScope)
 
     private val _bultosListStateFiltred = MutableStateFlow<UiState<List<Bulto>>>(UiState.Loading)
 
+    private val _hojasCargaListState = MutableStateFlow<UiState<List<HojaCarga>>>(UiState.Loading)
 
 
     val expedicionesListState: StateFlow<UiState<List<Expedicion>>> = combine(_expedicionesListState, _bultosListState) { expedicionesState, bultosState ->
@@ -72,6 +74,28 @@ class DataManager @Inject constructor(private val externalScope: CoroutineScope)
             }
             UiState.Success(updatedEstadillos)
         } else if (expedicionesState is UiState.Loading || estadillosState is UiState.Loading) {
+            UiState.Loading
+        } else {
+            UiState.Error("Error loading data")
+        }
+    }.stateIn(scope = externalScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = UiState.Loading)
+    val hojasCargaListState: StateFlow<UiState<List<HojaCarga>>> = combine(_hojasCargaListState, expedicionesListState) { hojasCargaState, expedicionesState ->
+        if (hojasCargaState is UiState.Success && expedicionesState is UiState.Success) {
+            val updatedhojasCarga = hojasCargaState.data.map { hojaCarga ->
+                val filteredExpediciones:MutableList<Expedicion> = mutableListOf()
+                hojaCarga.idPlazas.forEach({plaza ->
+                    filteredExpediciones.addAll(expedicionesState.data.filter { it.codPlaza == plaza })
+                })
+                hojaCarga.copy(
+                    expediciones = filteredExpediciones,
+                    numBultosTotal = filteredExpediciones.sumOf { expedicion -> expedicion.numBultos },
+                    numBultosCargados = filteredExpediciones.sumOf { expedicion -> expedicion.numbultosCargados }
+                )
+            }
+            UiState.Success(updatedhojasCarga)
+        } else if (expedicionesState is UiState.Loading || hojasCargaState is UiState.Loading) {
             UiState.Loading
         } else {
             UiState.Error("Error loading data")
@@ -138,6 +162,11 @@ class DataManager @Inject constructor(private val externalScope: CoroutineScope)
     fun updateBultosList(bultos: UiState<List<Bulto>>) {
         _bultosListState.value = bultos
     }
+
+    fun updateHojasCargaList(hojasCarga: UiState<List<HojaCarga>>) {
+        _hojasCargaListState.value = hojasCarga
+    }
+
     fun updateExpedicionListFiltred(expediciones: UiState<List<Expedicion>>) {
         _expedicionesListStateFiltred.value = expediciones
     }
@@ -153,6 +182,13 @@ class DataManager @Inject constructor(private val externalScope: CoroutineScope)
         val estadillos = (_estadillosListState.value as? UiState.Success)?.data?.toMutableList() ?: mutableListOf()
         estadillos.add(estadillo)
         _estadillosListState.value = UiState.Success(estadillos)
+    }
+    fun addHojasCarga(hojaCarga: HojaCarga){
+        val hojasCarga = (_hojasCargaListState.value as? UiState.Success)?.data?.toMutableList() ?: mutableListOf()
+        if(!hojasCarga.contains(hojaCarga)){
+            hojasCarga.add(hojaCarga)
+        }
+        _hojasCargaListState.value = UiState.Success(hojasCarga)
     }
     fun addBulto(bulto: Bulto){
         val bultos = (_bultosListState.value as? UiState.Success)?.data?.toMutableList() ?: mutableListOf()

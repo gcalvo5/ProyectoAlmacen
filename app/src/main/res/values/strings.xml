@@ -20,6 +20,7 @@
     <string name="peso_text">Peso :</string>
     <string name="repaso_text">Repaso</string>
     <string name="cargas_text">Cargas</string>
+    <string name="carga_text">Carga</string>
     <string name="repaso_por_plazas_text">Repaso por plazas</string>
     <string name="total_repasados_Text">Total repasados: %d/%d</string>
     <string name="cli_text">Cli :</string>

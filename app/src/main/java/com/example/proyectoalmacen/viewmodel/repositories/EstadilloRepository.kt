@@ -28,22 +28,12 @@ import javax.inject.Singleton
 import kotlin.text.format
 
 @Singleton
-class EstadilloRepository @Inject constructor(private val api: FakeAPI, private val dataManager: DataManager) {
+class EstadilloRepository @Inject constructor(private val api: FakeAPI) {
     fun fetchEstadillos(query:String):Flow<UiState<List<Estadillo>>> = flow {
         emit(UiState.Loading)
         try {
             val response = api.getEstadillos(query)
-            val expediciones = dataManager.expedicionesListState.value as? UiState.Success<List<Expedicion>>
             if (response.isSuccessful){
-                response.body()!!.forEach { estadillo ->
-                    estadillo.expediciones = expediciones?.data?.filter { it.idEstadillo == estadillo.numEst } ?: emptyList()
-                    estadillo.expediciones.forEach { expedicion ->
-                        estadillo.numBultosTotal += expedicion.numBultos
-                        estadillo.numBultosConfirmados += expedicion.numBultosConfirmados
-                        estadillo.numBultosRepasados += expedicion.numBultosRepasados
-                        estadillo.numBultosCargados += expedicion.numbultosCargados
-                    }
-                }
                 emit(UiState.Success(response.body()!! ))
             }else{
                 emit(UiState.Error( response.message()))

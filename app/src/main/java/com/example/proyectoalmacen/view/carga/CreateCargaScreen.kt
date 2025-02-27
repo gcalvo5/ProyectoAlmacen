@@ -3,6 +3,7 @@ package com.example.proyectoalmacen.view.carga
 import CustomButton
 import CustomTextView
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,7 +31,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.proyectoalmacen.R
+import com.example.proyectoalmacen.model.DataClasses.HojaCarga
+import com.example.proyectoalmacen.model.States.UiState
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomInputField
+import com.example.proyectoalmacen.view.commons.basicComponents.CustomLoader
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomMultiSelectDropdown
 import com.example.proyectoalmacen.view.commons.basicComponents.InputFieldType
 import com.example.proyectoalmacen.view.commons.basicComponents.SelectableItem
@@ -37,12 +43,23 @@ import com.example.proyectoalmacen.viewmodel.PlazasViewModel
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun CreateCargaScreen(onDismissRequest: () -> Unit, navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }){
+fun CreateCargaScreen(plazasViewModel: PlazasViewModel = hiltViewModel(),hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(),onDismissRequest: () -> Unit, navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }){
     var muelleText by remember { mutableStateOf("") }
     var plazasText by remember { mutableStateOf("") }
     var plazasList = remember { mutableStateListOf<Int>() }
-    val plazasViewModel: PlazasViewModel = hiltViewModel()
-    val hojaCargaViewModel: HojaCargaViewModel = hiltViewModel()
+    val uiStateHojasCarga by hojasCargaViewModel.hojasCargaList.collectAsState()
+    var loadingHojasCarga by remember { mutableStateOf(false) }
+    when (uiStateHojasCarga) {
+        is UiState.Loading -> {
+            loadingHojasCarga = true
+            CustomLoader(loadingHojasCarga)
+        }
+        is UiState.Success -> {
+            loadingHojasCarga = false
+            Log.i("Expediciones Success", "${(uiStateHojasCarga as UiState.Success<*>).data}")
+        }
+        is UiState.Error -> Log.e("Expediciones Error,", (uiStateHojasCarga as UiState.Error).message)
+    }
     Dialog(onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ){
@@ -69,6 +86,7 @@ fun CreateCargaScreen(onDismissRequest: () -> Unit, navigateToCarga: (plazas: Li
                         }
                     )
                     CustomMultiSelectDropdown(selectableItemList) {
+                        plazasList.clear()
                         plazasList.addAll(it.map { selectableItem -> plazasViewModel.getPlazaByNombre(selectableItem.name).codPlazas })
                         plazasText = it.joinToString { selectableItem -> selectableItem.name }
                     }
@@ -100,7 +118,7 @@ fun CreateCargaScreen(onDismissRequest: () -> Unit, navigateToCarga: (plazas: Li
                     CustomButton(
                         stringResource(R.string.crear_text),
                         onClick = {
-                            hojaCargaViewModel.crearHojaCarga(muelleText, listaPlazasId = plazasList)
+                            hojasCargaViewModel.createHojasCarga(muelleText.toInt(),  plazasList)
                             navigateToCarga(plazasList)
                         },
                         backgroundColor = colorScheme.secondary,

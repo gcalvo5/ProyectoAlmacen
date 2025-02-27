@@ -49,10 +49,10 @@ class ExpedicionRepository @Inject constructor(private val api: FakeAPI, private
             emit(UiState.Error(e.message.toString() ))
         }
     }
-    fun fetchExpedicionesFiltered(idExpedicion:String = "", codPlaza:Int = 0, idCliente:Int = 0):Flow<UiState<List<Expedicion>>> = flow {
+    fun fetchExpedicionesFiltered(idExpedicion:String = "", codPlaza:Int = 0, codPlazasMultiple:List<String> = emptyList(), idCliente:Int = 0):Flow<UiState<List<Expedicion>>> = flow {
         emit(UiState.Loading)
         try {
-            val response = api.getExpedicionesFiltered(idExpedicion, codPlaza, idCliente)
+            val response = api.getExpedicionesFiltered(idExpedicion, codPlaza, idCliente, codPlazasMultiple)
             val bultos = dataManager.bultosListState.value as? UiState.Success<List<Bulto>>
             if (response.isSuccessful){
                 response.body()!!.forEach { expedicion ->

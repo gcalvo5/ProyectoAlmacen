@@ -83,7 +83,7 @@ fun RepasoScreen(plazasViewModel: PlazasViewModel = hiltViewModel(),expedicionVi
             Log.i("Expedicion Escaneada Success", "${(uiStateExpedicionEscaneada as UiState.Success<List<Expedicion>>).data}")
             loadingExpedicionEscaneada = false
         }
-        is UiState.Error -> Log.e("Expedicion Escaneada Error,", (uiStateBultos as UiState.Error).message)
+        is UiState.Error -> Log.e("Expedicion Escaneada Error,", (uiStateExpedicionEscaneada as UiState.Error).message)
     }
     val bultos by remember {
         derivedStateOf {

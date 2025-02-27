@@ -5,6 +5,7 @@ import com.example.proyectoalmacen.model.DataClasses.Cliente
 import com.example.proyectoalmacen.model.DataClasses.Estadillo
 import com.example.proyectoalmacen.model.DataClasses.EstadoBulto
 import com.example.proyectoalmacen.model.DataClasses.Expedicion
+import com.example.proyectoalmacen.model.DataClasses.HojaCarga
 import com.example.proyectoalmacen.model.DataClasses.TipoUsuario
 import com.example.proyectoalmacen.model.DataClasses.Usuario
 import kotlinx.coroutines.delay
@@ -49,6 +50,15 @@ class FakeAPI @Inject constructor() {
         Estadillo(8, usuario = Usuario(5,"Admin", TipoUsuario.ADMIN), conductor =  Usuario(4,"Juan", TipoUsuario.CHOFER), fechaCreacion = "10/07/2025", tiempoCreacion = "11:44", muelle = 22, expediciones = emptyList())
     )
     var estadillos = estadillosInicial
+    val hojasCargaInicial = mutableListOf(
+        HojaCarga(numHojaCarga = 1, muelle = 22, idUsuario = 1, idPlazas = listOf(1,2,3), tiempoCreacion = "13:00"),
+        HojaCarga(numHojaCarga = 2, muelle = 22, idUsuario = 1, idPlazas = listOf(3,4,5), tiempoCreacion = "12:00"),
+        HojaCarga(numHojaCarga = 3, muelle = 22, idUsuario = 1, idPlazas = listOf(6,7,8), tiempoCreacion = "11:00"),
+        HojaCarga(numHojaCarga = 4, muelle = 22, idUsuario = 1, idPlazas = listOf(9,10,11), tiempoCreacion = "10:00"),
+        HojaCarga(numHojaCarga = 5, muelle = 22, idUsuario = 1, idPlazas = listOf(12,13,14), tiempoCreacion = "09:00"),
+        HojaCarga(numHojaCarga = 6, muelle = 22, idUsuario = 1, idPlazas = listOf(15,16,17), tiempoCreacion = "08:00"),
+    )
+    var hojasCarga = hojasCargaInicial
     suspend fun getBultos(query: String): Response<List<Bulto>> {
         if (query.isNotEmpty()) {
             bultos = bultosInicial.filter { it.idBulto.equals(query) }.toMutableList()
@@ -63,9 +73,9 @@ class FakeAPI @Inject constructor() {
         delay(1000)
         return Response.success(expedicionesInicial)
     }
-    suspend fun getExpedicionesFiltered(idExpedicion: String, codPlaza:Int, idCliente:Int): Response<List<Expedicion>> {
-        if (idExpedicion.isNotEmpty() || codPlaza != 0 || idCliente != 0) {
-            expediciones = expedicionesInicial.filter { it.idExpedicion.equals(idExpedicion) || it.codPlaza == codPlaza || it.cliente.idCliente == idCliente }.toMutableList()
+    suspend fun getExpedicionesFiltered(idExpedicion: String, codPlaza:Int, idCliente:Int, codPlazasMultiple:List<String>): Response<List<Expedicion>> {
+        if (idExpedicion.isNotEmpty() || codPlaza != 0 || idCliente != 0 || codPlazasMultiple.isNotEmpty()) {
+            expediciones = expedicionesInicial.filter { it.idExpedicion.equals(idExpedicion) || it.codPlaza == codPlaza || it.cliente.idCliente == idCliente || it.codPlaza.toString() in codPlazasMultiple }.toMutableList()
         }else{
             expediciones = expedicionesInicial
         }
@@ -84,6 +94,16 @@ class FakeAPI @Inject constructor() {
         return Response.success(estadillos)
     }
 
+    suspend fun getHojasCarga(query: String): Response<List<HojaCarga>> {
+        if (query.isNotEmpty()) {
+            hojasCarga = hojasCargaInicial.filter { it.numHojaCarga.toString() == query }.toMutableList()
+        }else{
+            hojasCarga = hojasCargaInicial
+        }
+        delay(1000)
+        return Response.success(hojasCarga)
+    }
+
     suspend fun postEstadillo(estadillo: Estadillo):Response<Estadillo>{
         estadillosInicial.add(estadillo)
         delay(1000)
@@ -100,6 +120,12 @@ class FakeAPI @Inject constructor() {
         expedicionesInicial.add(expedicion)
         delay(1000)
         return Response.success(expedicion)
+    }
+
+    suspend fun postHojaCarga(hojaCarga: HojaCarga):Response<HojaCarga>{
+        hojasCargaInicial.add(hojaCarga)
+        delay(1000)
+        return Response.success(hojaCarga)
     }
 
     suspend fun putBulto(bulto: Bulto):Response<Bulto>{
@@ -124,6 +150,14 @@ class FakeAPI @Inject constructor() {
         }
         delay(1000)
         return Response.success(estadillo)
+    }
+
+    suspend fun putHojasCarga(hojaCarga: HojaCarga):Response<HojaCarga> {
+        hojasCargaInicial.indexOfFirst { it.numHojaCarga == hojaCarga.numHojaCarga }.let {
+            hojasCarga[it] = hojaCarga
+        }
+        delay(1000)
+        return Response.success(hojaCarga)
     }
 
 }

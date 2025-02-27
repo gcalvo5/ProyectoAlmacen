@@ -537,7 +537,25 @@ fun ItemRowListaPlazasRepasar(item: Plazas, navigateToRepaso: (numPlaza: Int) ->
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun Tab4Content(hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), expedicionViewModel: ExpedicionViewModel = hiltViewModel(), navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
+fun Tab4Content(hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
+    val uiStateHojasCarga by hojasCargaViewModel.hojasCargaList.collectAsState()
+    var loadingHojasCarga by remember { mutableStateOf(false) }
+    val hojasCarga by remember {
+        derivedStateOf {
+            (uiStateHojasCarga as? UiState.Success<List<HojaCarga>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateHojasCarga) {
+        is UiState.Loading -> {
+            loadingHojasCarga = true
+            CustomLoader(loadingHojasCarga)
+        }
+        is UiState.Success -> {
+            loadingHojasCarga = false
+            Log.i("Expediciones Success", "${(uiStateHojasCarga as UiState.Success<*>).data}")
+        }
+        is UiState.Error -> Log.e("Expediciones Error,", (uiStateHojasCarga as UiState.Error).message)
+    }
     Column(
         modifier = Modifier
             .fillMaxSize(),
@@ -547,13 +565,13 @@ fun Tab4Content(hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), exped
         var createHojaCargaDialogisVisible by remember { mutableStateOf(false) }
         CustomIconButton(text = stringResource(R.string.crear_text), icon = Icons.Filled.Add, onClick = { createHojaCargaDialogisVisible = !createHojaCargaDialogisVisible })
         if (createHojaCargaDialogisVisible) {
-            CreateCargaScreen(onDismissRequest = {}, navigateToCarga)
+            CreateCargaScreen(onDismissRequest = {}, navigateToCarga = navigateToCarga)
         }
         LazyColumn(modifier = Modifier
             .fillMaxSize()
             .padding(10.dp)
         ) {
-            items(hojasCargaViewModel.hojaCargaState.hojasCarga) { item ->
+            items(hojasCarga) { item ->
                 ItemRowListaHojasCarga(item = item, navigateToCarga)
             }
         }

@@ -15,10 +15,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,6 +41,7 @@ import com.example.proyectoalmacen.model.DataClasses.Expedicion
 import com.example.proyectoalmacen.model.States.UiState
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomIconButton
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomInputField
+import com.example.proyectoalmacen.view.commons.basicComponents.CustomLoader
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomTopBar
 import com.example.proyectoalmacen.view.commons.basicComponents.DialogoBulto
 import com.example.proyectoalmacen.view.commons.basicComponents.DialogoBultoType
@@ -67,6 +66,25 @@ fun CargaScreen(navController: NavController, plazas:List<Int>, bultoViewModel: 
     val expandedStates = remember { mutableStateListOf<Boolean>().apply {
         addAll(List(plazas.size) { false })
     } }
+    val uiStateExpedicionEscaneada by expedicionViewModel.expedicionNoUpdate.collectAsState()
+    var loadingBultos by remember { mutableStateOf(false) }
+    var loadingExpedicionEscaneada by remember { mutableStateOf(false) }
+    val expedicionEscaneada by remember {
+        derivedStateOf {
+            (uiStateExpedicionEscaneada as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateExpedicionEscaneada) {
+        is UiState.Loading -> {
+            loadingExpedicionEscaneada = true
+            CustomLoader(loadingExpedicionEscaneada)
+        }
+        is UiState.Success ->{
+            Log.i("Expedicion Escaneada Success", "${(uiStateExpedicionEscaneada as UiState.Success<List<Expedicion>>).data}")
+            loadingExpedicionEscaneada = false
+        }
+        is UiState.Error -> Log.e("Expedicion Escaneada Error,", (uiStateExpedicionEscaneada as UiState.Error).message)
+    }
     val uiStateBultos by bultoViewModel.bultosListFiltred.collectAsState()
     val bultos by remember {
         derivedStateOf {
@@ -74,25 +92,25 @@ fun CargaScreen(navController: NavController, plazas:List<Int>, bultoViewModel: 
         }
     }
     when (uiStateBultos) {
-        is UiState.Loading -> CircularProgressIndicator()
-        is UiState.Success -> Log.i("Bultos Success", "${(uiStateBultos as UiState.Success<List<Bulto>>).data}")
+        is UiState.Loading -> {
+            loadingBultos = true
+            CustomLoader(loadingBultos)
+        }
+        is UiState.Success ->{
+            Log.i("Bultos Success", "${(uiStateBultos as UiState.Success<List<Bulto>>).data}")
+            loadingBultos = false
+        }
         is UiState.Error -> Log.e("Bultos Error,", (uiStateBultos as UiState.Error).message)
     }
-    val uiStateExpedicion by expedicionViewModel.expedicionListFiltred.collectAsState()
-    val expediciones by remember {
-        derivedStateOf {
-            (uiStateExpedicion as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
-        }
+    LaunchedEffect(Unit) {
+        val plazasString = plazas.joinToString(",")
+        expedicionViewModel.setSearchQuery(plazasString, ExpedicionesQueryType.MULTIPLECODPLAZA)
     }
-    when (uiStateExpedicion) {
-        is UiState.Loading -> CircularProgressIndicator()
-        is UiState.Success -> Log.i("Bultos Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
-        is UiState.Error -> Log.e("Bultos Error,", (uiStateExpedicion as UiState.Error).message)
-    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.imePadding(),
-        topBar = { CustomTopBar(navController = navController, title = stringResource(R.string.estadillo_text), showConfigButton = false, showHomeButton = true) },
+        topBar = { CustomTopBar(navController = navController, title = stringResource(R.string.carga_text), showConfigButton = false, showHomeButton = true) },
     ) { innerPadding ->
 
         Column(
@@ -103,34 +121,65 @@ fun CargaScreen(navController: NavController, plazas:List<Int>, bultoViewModel: 
         ) {
             CustomInputField(focusRequester = focusRequester,value = myTextFieldValue ,type = InputFieldType.READ_ONLY, onValueChange = { newText ->
 
-                val modifiedText = newText.replace("\n","").trim()
+                val modifiedText = newText.replace("\n", "").trim()
 
-                val limitedString = if(modifiedText.length > 20){
+                val limitedString = if (modifiedText.length > 20) {
                     modifiedText.takeLast(20)
-                }else{
+                } else {
                     modifiedText
                 }
                 myTextFieldValue = limitedString
-                bultoViewModel.setSearchQuery(myTextFieldValue)
 
-                if(bultos.firstOrNull() != null){
-                    estadoDialogo = if(bultos.first().estadoBulto == EstadoBulto.CARGADO) EstadoDialogo.REPETIDO else EstadoDialogo.ENCONTRADO
-                }else{
-                    estadoDialogo = EstadoDialogo.NOENCONTRADO
-                }
-                showDialog = true
+
+
             })
-            if(bultos.firstOrNull() != null){
-                expedicionViewModel.setSearchQuery(bultos.first().idExpedicion, ExpedicionesQueryType.ID)
-                val posicionExpandida = expandedStates.indexOf(true)
+            LaunchedEffect(key1 = myTextFieldValue) {
+                if (!loadingBultos && myTextFieldValue.isNotEmpty()) {
+                    bultoViewModel.setSearchQuery(myTextFieldValue)
+                }
+            }
 
-                if(posicionExpandida != -1 && expediciones.firstOrNull() != null && expediciones.first().codPlaza != plazas[posicionExpandida]) estadoDialogo = EstadoDialogo.EQUIVOCADO
+            LaunchedEffect(key1 = bultos) {
+                if(!loadingBultos && myTextFieldValue.isNotEmpty()){
+                    if (bultos.firstOrNull() != null) {
+                        estadoDialogo =
+                            if (bultos.first().estadoBulto == EstadoBulto.CARGADO) EstadoDialogo.REPETIDO else EstadoDialogo.ENCONTRADO
+                    } else {
+                        estadoDialogo = EstadoDialogo.NOENCONTRADO
+                    }
+                    Log.i("Pruebas Dialogo", "flags puestos a true")
+                    if (bultos.firstOrNull() != null) {
+                            expedicionViewModel.setSearchQuery(
+                                bultos.first().idExpedicion,
+                                ExpedicionesQueryType.ID,
+                                true
+                            )
+                    }
+                }
             }
-            val currentTime = System.currentTimeMillis()
-            if(showDialog && currentTime - dialogTimer > dialogDelay){
-                DialogoBulto(onDismissRequest = {showDialog = false}, estadoDialogo = estadoDialogo, expedicion = expediciones.firstOrNull(), dialogoBultoType = DialogoBultoType.CARGA)
+            LaunchedEffect(key1 = expedicionEscaneada) {
+                if(expedicionEscaneada.isNotEmpty() && !loadingExpedicionEscaneada){
+                    val posicionExpandida = expandedStates.indexOf(true)
+                    if (posicionExpandida != -1 && plazas[posicionExpandida] != expedicionEscaneada.first().codPlaza) estadoDialogo =
+                        EstadoDialogo.EQUIVOCADO
+                    if ( bultos.firstOrNull() != null && (bultos.first().estadoBulto == EstadoBulto.DESCARGADO || bultos.first().estadoBulto == EstadoBulto.REPASADO) && estadoDialogo != EstadoDialogo.EQUIVOCADO) bultoViewModel.updateBulto(
+                        bultos.first().copy(estadoBulto = EstadoBulto.CARGADO)
+                    )
+                    showDialog = true
+                }
+
             }
-            if(bultos.firstOrNull() != null && (bultos.first().estadoBulto == EstadoBulto.DESCARGADO || bultos.first().estadoBulto == EstadoBulto.REPASADO) && estadoDialogo != EstadoDialogo.EQUIVOCADO) bultoViewModel.updateBulto(bultos.first().copy(estadoBulto = EstadoBulto.CARGADO))
+
+            if (showDialog && expedicionEscaneada.isNotEmpty()) {
+                DialogoBulto(
+                    onDismissRequest = {
+                        showDialog = false
+                    },
+                    estadoDialogo = estadoDialogo,
+                    expedicion = expedicionEscaneada.first(),
+                    dialogoBultoType = DialogoBultoType.CARGA,
+                )
+            }
             Spacer(modifier = Modifier.height(10.dp))
             // Request focus when the composable is launched
             LaunchedEffect(Unit) {
@@ -157,15 +206,22 @@ fun itemRowProvinciascarga(plazasViewModel: PlazasViewModel = hiltViewModel(),ex
     var iconoDesplegable by remember { mutableStateOf(Icons.Filled.KeyboardArrowDown) }
     val plazaName = plazasViewModel.getPlazaById(item).nombrePlaza
     val uiStateExpedicion by expedicionViewModel.expedicionListFiltred.collectAsState()
+    var loadingExpediciones by remember { mutableStateOf(false) }
     val expediciones by remember {
         derivedStateOf {
             (uiStateExpedicion as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
         }
     }
     when (uiStateExpedicion) {
-        is UiState.Loading -> CircularProgressIndicator()
-        is UiState.Success -> Log.i("Bultos Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
-        is UiState.Error -> Log.e("Bultos Error,", (uiStateExpedicion as UiState.Error).message)
+        is UiState.Loading -> {
+            loadingExpediciones = true
+            CustomLoader(loadingExpediciones)
+        }
+        is UiState.Success -> {
+            Log.i("Expedicion Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
+            loadingExpediciones = false
+        }
+        is UiState.Error -> Log.e("Expedicion,", (uiStateExpedicion as UiState.Error).message)
     }
     Column(modifier = Modifier.fillMaxWidth()) {
         CustomIconButton(
@@ -191,8 +247,7 @@ fun itemRowProvinciascarga(plazasViewModel: PlazasViewModel = hiltViewModel(),ex
         if (expandedStates[index]) {
             // Expanded content
             Column {
-                expedicionViewModel.setSearchQuery(item.toString(), ExpedicionesQueryType.CODPLAZA)
-                expediciones.forEach() {
+                expediciones.filter { it.codPlaza == item }.forEach() {
                     RowExpediciones(it, type = RowExpedicionType.CARGAR)
                 }
             }

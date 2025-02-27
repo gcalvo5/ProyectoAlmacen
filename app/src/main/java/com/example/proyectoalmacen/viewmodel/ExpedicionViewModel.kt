@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 enum class ExpedicionesQueryType{
-    ID, CODPLAZA, IDCLIENTE
+    ID, CODPLAZA, IDCLIENTE, MULTIPLECODPLAZA
 }
 
 @HiltViewModel
@@ -70,6 +70,14 @@ class ExpedicionViewModel @Inject constructor(
                         dataManager.updateExpedicionListFiltred(state)
                     }
                 }
+
+                ExpedicionesQueryType.MULTIPLECODPLAZA -> {
+                    val lista = searchQuery.value.split(",")
+                    expedicionRepository.fetchExpedicionesFiltered(codPlazasMultiple = lista)
+                        .collect { state ->
+                            dataManager.updateExpedicionListFiltred(state)
+                        }
+                }
             }
             _searchQuery.value = ""
         }
@@ -93,6 +101,14 @@ class ExpedicionViewModel @Inject constructor(
                     expedicionRepository.fetchExpedicionesFiltered(idCliente = searchQuery.value.toInt()).collect { state ->
                         _expedicionNoUpdate.value = state
                     }
+                }
+
+                ExpedicionesQueryType.MULTIPLECODPLAZA -> {
+                    val lista = searchQuery.value.split(",")
+                    expedicionRepository.fetchExpedicionesFiltered(codPlazasMultiple = lista)
+                        .collect { state ->
+                            dataManager.updateExpedicionListFiltred(state)
+                        }
                 }
             }
             _searchQuery.value = ""
