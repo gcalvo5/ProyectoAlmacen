@@ -16,18 +16,18 @@ import javax.inject.Singleton
 @Singleton
 class FakeAPI @Inject constructor() {
     val bultosInicial = mutableListOf<Bulto>(
-        Bulto(idBulto = "00TLNKC354C9BD01A5B8", idExpedicion = "2", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC62C89B82BB835", idExpedicion = "3", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC354C9BD01A348", idExpedicion = "1", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC62C89B82BB555", idExpedicion = "5", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC354C9BD01A668", idExpedicion = "5", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC62C89B8277835", idExpedicion = "4", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC354C9BD0885B8", idExpedicion = "5", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC62C89B8299835", idExpedicion = "2", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC354C9BD00A5B8", idExpedicion = "4", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC726DD1D61B8B0", idExpedicion = "3", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC354C9BD22A5B8", idExpedicion = "2", estadoBulto = EstadoBulto.DESCARGADO),
-        Bulto(idBulto = "00TLNKC62C89B833B835", idExpedicion = "1", estadoBulto = EstadoBulto.DESCARGADO),
+        Bulto(idBulto = "00TLNKC354C9BD01A5B8", idExpedicion = "2", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC62C89B82BB835", idExpedicion = "3", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC354C9BD01A348", idExpedicion = "1", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC62C89B82BB555", idExpedicion = "5", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC354C9BD01A668", idExpedicion = "5", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC62C89B8277835", idExpedicion = "4", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC354C9BD0885B8", idExpedicion = "5", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC62C89B8299835", idExpedicion = "2", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC354C9BD00A5B8", idExpedicion = "4", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC726DD1D61B8B0", idExpedicion = "3", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC354C9BD22A5B8", idExpedicion = "2", estadoBulto = EstadoBulto.CREADO),
+        Bulto(idBulto = "00TLNKC62C89B833B835", idExpedicion = "1", estadoBulto = EstadoBulto.CREADO),
 
         )
     var bultos = bultosInicial
@@ -58,6 +58,12 @@ class FakeAPI @Inject constructor() {
         HojaCarga(numHojaCarga = 5, muelle = 22, idUsuario = 1, idPlazas = listOf(12,13,14), tiempoCreacion = "09:00"),
         HojaCarga(numHojaCarga = 6, muelle = 22, idUsuario = 1, idPlazas = listOf(15,16,17), tiempoCreacion = "08:00"),
     )
+    val usuariosInicial = mutableListOf<Usuario>(
+        Usuario(numUsuario = 1, nombre = "Admin", tipoUsuario = TipoUsuario.CHOFER),
+        Usuario(numUsuario = 2, nombre = "Juan", tipoUsuario = TipoUsuario.CHOFER),
+        )
+    var usuarios = usuariosInicial
+
     var hojasCarga = hojasCargaInicial
     suspend fun getBultos(query: String): Response<List<Bulto>> {
         if (query.isNotEmpty()) {
@@ -73,9 +79,9 @@ class FakeAPI @Inject constructor() {
         delay(1000)
         return Response.success(expedicionesInicial)
     }
-    suspend fun getExpedicionesFiltered(idExpedicion: String, codPlaza:Int, idCliente:Int, codPlazasMultiple:List<String>): Response<List<Expedicion>> {
+    suspend fun getExpedicionesFiltered(idExpedicion: String, codPlaza:Int, idCliente:Int, codPlazasMultiple:List<String>, idClientesMultiple:List<String>): Response<List<Expedicion>> {
         if (idExpedicion.isNotEmpty() || codPlaza != 0 || idCliente != 0 || codPlazasMultiple.isNotEmpty()) {
-            expediciones = expedicionesInicial.filter { it.idExpedicion.equals(idExpedicion) || it.codPlaza == codPlaza || it.cliente.idCliente == idCliente || it.codPlaza.toString() in codPlazasMultiple }.toMutableList()
+            expediciones = expedicionesInicial.filter { it.idExpedicion.equals(idExpedicion) || it.codPlaza == codPlaza || it.cliente.idCliente == idCliente || it.codPlaza.toString() in codPlazasMultiple || it.cliente.idCliente.toString() in idClientesMultiple}.toMutableList()
         }else{
             expediciones = expedicionesInicial
         }
@@ -102,6 +108,16 @@ class FakeAPI @Inject constructor() {
         }
         delay(1000)
         return Response.success(hojasCarga)
+    }
+
+    suspend fun getUsuarios(query: String): Response<List<Usuario>> {
+        if (query.isNotEmpty()) {
+            usuarios = usuariosInicial.filter { it.nombre.equals(query) }.toMutableList()
+        }else{
+            usuarios = usuariosInicial
+        }
+        delay(1000)
+        return Response.success(usuarios)
     }
 
     suspend fun postEstadillo(estadillo: Estadillo):Response<Estadillo>{

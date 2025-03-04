@@ -60,8 +60,7 @@ fun CreateCargaScreen(plazasViewModel: PlazasViewModel = hiltViewModel(),hojasCa
         }
         is UiState.Error -> Log.e("Expediciones Error,", (uiStateHojasCarga as UiState.Error).message)
     }
-    Dialog(onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    Dialog(onDismissRequest = onDismissRequest
     ){
         Card (colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer, contentColor = colorScheme.primary), modifier = Modifier.fillMaxWidth()){
             Column(
@@ -85,11 +84,11 @@ fun CreateCargaScreen(plazasViewModel: PlazasViewModel = hiltViewModel(),hojasCa
                             selectableItemList.add(SelectableItem(selectableItem.nombrePlaza))
                         }
                     )
-                    CustomMultiSelectDropdown(selectableItemList) {
+                    CustomMultiSelectDropdown(items = selectableItemList, onSelectionChanged = {
                         plazasList.clear()
                         plazasList.addAll(it.map { selectableItem -> plazasViewModel.getPlazaByNombre(selectableItem.name).codPlazas })
                         plazasText = it.joinToString { selectableItem -> selectableItem.name }
-                    }
+                    })
 
                 }
                 Spacer(modifier = Modifier.height(5.dp))

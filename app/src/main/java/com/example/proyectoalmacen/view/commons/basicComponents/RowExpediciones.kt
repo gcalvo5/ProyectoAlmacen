@@ -50,15 +50,17 @@ fun RowExpediciones(item: Expedicion, type: RowExpedicionType) {
 
         RowExpedicionType.REPASAR ->
             when{
-                item.numBultosRepasados == item.numBultosConfirmados + item.numBultosRepasados -> colorFondo = colorScheme.surfaceContainerLow
-                item.numBultosRepasados == 0 -> colorFondo = colorScheme.tertiaryContainer
+                item.numBultosRepasados == item.numBultosConfirmados + item.numBultosRepasados && item.numBultosRepasados > 0 -> colorFondo = colorScheme.surfaceContainerLow
+                item.numBultosRepasados == 0 && item.numBultosConfirmados > 0 -> colorFondo = colorScheme.tertiaryContainer
                 item.numBultosRepasados < item.numBultosConfirmados + item.numBultosRepasados -> colorFondo = colorScheme.surfaceContainerHigh
+                item.numBultosConfirmados + item.numBultosRepasados == 0 -> colorFondo = colorScheme.surfaceContainerLowest
             }
         RowExpedicionType.CARGAR ->
             when{
-                item.numbultosCargados == item.numBultos -> colorFondo = colorScheme.surfaceContainerLow
-                item.numbultosCargados == 0 -> colorFondo = colorScheme.tertiaryContainer
-                item.numbultosCargados < item.numBultos -> colorFondo = colorScheme.surfaceContainerHigh
+                item.numbultosCargados == item.numBultosConfirmados + item.numBultosRepasados + item.numbultosCargados && item.numbultosCargados > 0 -> colorFondo = colorScheme.surfaceContainerLow
+                item.numbultosCargados == 0 && item.numBultosConfirmados + item.numBultosRepasados > 0 -> colorFondo = colorScheme.tertiaryContainer
+                item.numbultosCargados < item.numBultosConfirmados + item.numBultosRepasados + item.numbultosCargados -> colorFondo = colorScheme.surfaceContainerHigh
+                item.numBultosConfirmados + item.numBultosRepasados + item.numbultosCargados == 0 -> colorFondo = colorScheme.surfaceContainerLowest
             }
     }
     if(type == RowExpedicionType.DESCARGAR){

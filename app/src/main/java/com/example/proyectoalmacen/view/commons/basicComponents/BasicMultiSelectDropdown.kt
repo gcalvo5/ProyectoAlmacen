@@ -46,16 +46,19 @@ data class SelectableItem(
 @Composable
 fun CustomMultiSelectDropdown(
     items: List<SelectableItem>,
-    onSelectionChanged: (List<SelectableItem>) -> Unit
+    onSelectionChanged: (List<SelectableItem>) -> Unit,
+    searchTextIntro: String = ""
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var searchText by remember { mutableStateOf("") }
+    var searchText by remember { mutableStateOf(searchTextIntro) }
     var selectableItems by remember { mutableStateOf(items) }
 
     val filteredItems = selectableItems.filter {
         it.name.contains(searchText, ignoreCase = true)
     }
-
+    if (searchTextIntro.isNotEmpty() && !searchText.startsWith(searchTextIntro)) {
+        searchText = searchTextIntro
+    }
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded },

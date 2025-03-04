@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,10 +23,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,6 +44,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -56,7 +62,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.proyectoalmacen.R
+import com.example.proyectoalmacen.model.DataClasses.Bulto
+import com.example.proyectoalmacen.model.DataClasses.TipoBulto
 import com.example.proyectoalmacen.model.DataClasses.Estadillo
+import com.example.proyectoalmacen.model.DataClasses.EstadoBulto
 import com.example.proyectoalmacen.model.DataClasses.Expedicion
 import com.example.proyectoalmacen.model.DataClasses.Recogida
 import com.example.proyectoalmacen.model.DataClasses.Usuario
@@ -64,12 +73,17 @@ import com.example.proyectoalmacen.model.States.UiState
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomComparationText
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomIconButton
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomInputField
+import com.example.proyectoalmacen.view.commons.basicComponents.CustomLoader
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomSegmentedButtons
 import com.example.proyectoalmacen.view.commons.basicComponents.CustomTopBar
+import com.example.proyectoalmacen.view.commons.basicComponents.DialogoBulto
+import com.example.proyectoalmacen.view.commons.basicComponents.DialogoBultoType
+import com.example.proyectoalmacen.view.commons.basicComponents.EstadoDialogo
 import com.example.proyectoalmacen.view.commons.basicComponents.InputFieldType
 import com.example.proyectoalmacen.view.commons.basicComponents.RowExpedicionType
 import com.example.proyectoalmacen.view.commons.basicComponents.RowExpediciones
 import com.example.proyectoalmacen.view.commons.basicComponents.SegmentedButtonOption
+import com.example.proyectoalmacen.viewmodel.BultoViewModel
 import com.example.proyectoalmacen.viewmodel.EstadilloViewModel
 import com.example.proyectoalmacen.viewmodel.ExpedicionViewModel
 import com.example.proyectoalmacen.viewmodel.ExpedicionesQueryType
@@ -79,31 +93,83 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 
 @Composable
-fun EstadilloScreen(recogidaViewModel: RecogidaViewModel = hiltViewModel(),estadilloViewModel: EstadilloViewModel = hiltViewModel(),usuarioViewModel: UsuarioViewModel = hiltViewModel(),navController: NavController, idEstadillo: Int, nombreChofer: String){
-    val uiStateEstadillo by estadilloViewModel.estadillosList.collectAsState(initial = SharingStarted.WhileSubscribed(5000),
-        context = Dispatchers.Default)
-    val estadillos by remember {
-        derivedStateOf {
-            (uiStateEstadillo as? UiState.Success<List<Estadillo>>)?.data ?: emptyList()
-        }
-    }
-    when (uiStateEstadillo) {
-        is UiState.Loading -> CircularProgressIndicator()
-        is UiState.Success<*> -> Log.i("Bultos Success", "${(uiStateEstadillo as UiState.Success<*>).data}")
-        is UiState.Error -> Log.e("Bultos Error,", (uiStateEstadillo as UiState.Error).message)
-    }
-    estadilloViewModel.setSearchQuery(idEstadillo.toString())
+fun EstadilloScreen(bultoViewModel: BultoViewModel = hiltViewModel(), expedicionViewModel: ExpedicionViewModel = hiltViewModel(), recogidaViewModel: RecogidaViewModel = hiltViewModel(), usuarioViewModel: UsuarioViewModel = hiltViewModel(), navController: NavController, idEstadillo: Int, nombreChofer: String){
+
     var myTextFieldValue by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-
-    val conductor:Usuario? = usuarioViewModel.getUsuarioByName(nombreChofer).firstOrNull()
+    var showDialog by remember { mutableStateOf(false) }
+    var tipoBultoSeleccionado by remember { mutableStateOf(TipoBulto.PALET) }
+    val uiStateUsuarios by usuarioViewModel.usuariosList.collectAsState()
+    var loadingUsuarios by remember { mutableStateOf(false) }
+    val usuarios by remember {
+        derivedStateOf {
+            (uiStateUsuarios as? UiState.Success<List<Usuario>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateUsuarios) {
+        is UiState.Loading -> {
+            loadingUsuarios = true
+            CustomLoader(loadingUsuarios)
+        }
+        is UiState.Success -> {
+            loadingUsuarios = false
+            Log.i("Expediciones Success", "${(uiStateUsuarios as UiState.Success<*>).data}")
+        }
+        is UiState.Error -> Log.e("Expediciones Error,", (uiStateUsuarios as UiState.Error).message)
+    }
+    val conductor:Usuario? = usuarios.find { it.nombre == nombreChofer }
     val recogidas = conductor?.let { recogidaViewModel.getRecogidasByIdConductor(it.numUsuario) }
+    var estadoDialogo by remember { mutableStateOf(EstadoDialogo.ENCONTRADO) }
 
     val expandedStates = remember { mutableStateListOf<Boolean>().apply {
         if (recogidas != null) {
-            addAll(List(recogidas.size) { false })
+            addAll(List(recogidas!!.size) { false })
         }
     } }
+    if (recogidas != null && expandedStates.isEmpty()) {
+        expandedStates.addAll(List(recogidas!!.size) { false })
+    }
+    val uiStateExpedicionEscaneada by expedicionViewModel.expedicionNoUpdate.collectAsState()
+    var loadingBultos by remember { mutableStateOf(false) }
+    var loadingExpedicionEscaneada by remember { mutableStateOf(false) }
+    val expedicionEscaneada by remember {
+        derivedStateOf {
+            (uiStateExpedicionEscaneada as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateExpedicionEscaneada) {
+        is UiState.Loading -> {
+            loadingExpedicionEscaneada = true
+            CustomLoader(loadingExpedicionEscaneada)
+        }
+        is UiState.Success ->{
+            Log.i("Expedicion Escaneada Success", "${(uiStateExpedicionEscaneada as UiState.Success<List<Expedicion>>).data}")
+            loadingExpedicionEscaneada = false
+        }
+        is UiState.Error -> Log.e("Expedicion Escaneada Error,", (uiStateExpedicionEscaneada as UiState.Error).message)
+    }
+    val uiStateBultos by bultoViewModel.bultosListFiltred.collectAsState()
+    val bultos by remember {
+        derivedStateOf {
+            (uiStateBultos as? UiState.Success<List<Bulto>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateBultos) {
+        is UiState.Loading -> {
+            loadingBultos = true
+            CustomLoader(loadingBultos)
+        }
+        is UiState.Success ->{
+            Log.i("Bultos Success", "${(uiStateBultos as UiState.Success<List<Bulto>>).data}")
+            loadingBultos = false
+        }
+        is UiState.Error -> Log.e("Bultos Error,", (uiStateBultos as UiState.Error).message)
+    }
+
+    LaunchedEffect(expandedStates) {
+        val idClientes = recogidas?.joinToString(",")
+        idClientes?.let { expedicionViewModel.setSearchQuery(it, ExpedicionesQueryType.MULTIPLEIDCLIENTE) }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -114,9 +180,10 @@ fun EstadilloScreen(recogidaViewModel: RecogidaViewModel = hiltViewModel(),estad
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize()
+                .fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row {
+            Row(modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 CustomInputField(focusRequester = focusRequester,value = myTextFieldValue ,type = InputFieldType.READ_ONLY, onValueChange = { newText ->
 
                     val modifiedText = newText.replace("\n", "").trim()
@@ -127,25 +194,91 @@ fun EstadilloScreen(recogidaViewModel: RecogidaViewModel = hiltViewModel(),estad
                         modifiedText
                     }
                     myTextFieldValue = limitedString
+
+
+
+                })
+                LaunchedEffect(Unit) {
+                    focusRequester.requestFocus()
                 }
-                )
+                LaunchedEffect(key1 = myTextFieldValue) {
+                    if (!loadingBultos && myTextFieldValue.isNotEmpty()) {
+                        bultoViewModel.setSearchQuery(myTextFieldValue)
+                    }
+                }
+
+                LaunchedEffect(key1 = bultos) {
+                    if(!loadingBultos && myTextFieldValue.isNotEmpty()){
+                        if (bultos.firstOrNull() != null) {
+                            estadoDialogo =
+                                if (bultos.first().estadoBulto == EstadoBulto.DESCARGADO) EstadoDialogo.REPETIDO else EstadoDialogo.ENCONTRADO
+                        } else {
+                            estadoDialogo = EstadoDialogo.NOENCONTRADO
+                        }
+                        Log.i("Pruebas Dialogo", "flags puestos a true")
+                        if (bultos.firstOrNull() != null) {
+                            expedicionViewModel.setSearchQuery(
+                                bultos.first().idExpedicion,
+                                ExpedicionesQueryType.ID,
+                                true
+                            )
+                        }
+                    }
+                }
+                LaunchedEffect(key1 = expedicionEscaneada) {
+                    if(expedicionEscaneada.isNotEmpty() && !loadingExpedicionEscaneada){
+                        if ( bultos.firstOrNull() != null && bultos.first().estadoBulto == EstadoBulto.CREADO) bultoViewModel.updateBulto(
+                            bultos.first().copy(estadoBulto = EstadoBulto.DESCARGADO, tipoBulto = tipoBultoSeleccionado)
+                        )
+                        showDialog = true
+                    }
+
+                }
+
+                if (showDialog && expedicionEscaneada.isNotEmpty()) {
+                    DialogoBulto(
+                        onDismissRequest = {
+                            showDialog = false
+                        },
+                        estadoDialogo = estadoDialogo,
+                        expedicion = expedicionEscaneada.first(),
+                        dialogoBultoType = DialogoBultoType.DESCARGA,
+                    )
+                }
             }
+            Spacer(Modifier.height(10.dp))
             Row(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                CustomSegmentedButtons(options = listOf(
+                val options = listOf(
                     SegmentedButtonOption("", Icons.Filled.Home),
-                    SegmentedButtonOption("", Icons.Filled.Settings),
-                    SegmentedButtonOption("", Icons.Filled.Settings),
-                    SegmentedButtonOption("", Icons.Filled.Settings),
-                            SegmentedButtonOption("", Icons.Filled.Settings))
-                    , onOptionSelected = {})
+                    SegmentedButtonOption("", Icons.Filled.Favorite),
+                    SegmentedButtonOption("", Icons.Filled.AccountBox),
+                    SegmentedButtonOption("", Icons.Filled.Build),
+                    SegmentedButtonOption("", Icons.Filled.LocationOn))
+                CustomSegmentedButtons(options = options
+                    , onOptionSelected = {
+                        tipoBultoSeleccionado = when(options[it].icon){
+                            Icons.Filled.Home -> TipoBulto.PALET
+                            Icons.Filled.Favorite -> TipoBulto.BULTO
+                            Icons.Filled.AccountBox -> TipoBulto.CONTENEDOR
+                            Icons.Filled.Build -> TipoBulto.BIDON
+                            Icons.Filled.LocationOn -> TipoBulto.ROLLO
+                            else -> TipoBulto.PALET
+                        }
+                    })
             }
-            Row{
+            Row(modifier = Modifier.fillMaxSize().navigationBarsPadding()){
                 LazyColumn(modifier = Modifier
                     .fillMaxSize()
                     .padding(10.dp)
                 ) {
-                    itemsIndexed(recogidas!!) { index, item ->
-                        ItemRowEstadillo(item = item, index = index, expandedStates = expandedStates)
+                    if(recogidas != null) {
+                        itemsIndexed(recogidas!!) { index, item ->
+                            ItemRowEstadillo(
+                                item = item,
+                                index = index,
+                                expandedStates = expandedStates
+                            )
+                        }
                     }
                 }
             }
@@ -163,11 +296,6 @@ fun ItemRowEstadillo(expedicionViewModel: ExpedicionViewModel = hiltViewModel(),
         derivedStateOf {
             (uiStateExpedicion as? UiState.Success<List<Expedicion>>)?.data ?: emptyList()
         }
-    }
-    when (uiStateExpedicion) {
-        is UiState.Loading -> CircularProgressIndicator()
-        is UiState.Success -> Log.i("Bultos Success", "${(uiStateExpedicion as UiState.Success<*>).data}")
-        is UiState.Error -> Log.e("Bultos Error,", (uiStateExpedicion as UiState.Error).message)
     }
     Column(modifier = Modifier.fillMaxWidth()) {
         CustomIconButton(
@@ -190,8 +318,7 @@ fun ItemRowEstadillo(expedicionViewModel: ExpedicionViewModel = hiltViewModel(),
             val diccionarioExpediciones: MutableMap<String, MutableList<Expedicion>> = mutableMapOf()
             // Expanded content
             Column {
-                expedicionViewModel.setSearchQuery(item.clienteRecogida.idCliente.toString(), ExpedicionesQueryType.IDCLIENTE)
-                expediciones.forEach() {
+                expediciones.filter { expedicion -> expedicion.cliente.idCliente == item.clienteRecogida.idCliente }.forEach() {
                     if (!listaDeProvinciasActuales.contains(it.provincia)){
                         listaDeProvinciasActuales.add(it.provincia)
                         diccionarioExpediciones.put(it.provincia, mutableListOf(it))

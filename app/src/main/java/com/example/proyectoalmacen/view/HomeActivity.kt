@@ -78,6 +78,7 @@ import com.example.proyectoalmacen.model.DataClasses.Estadillo
 import com.example.proyectoalmacen.model.DataClasses.Expedicion
 import com.example.proyectoalmacen.model.DataClasses.HojaCarga
 import com.example.proyectoalmacen.model.DataClasses.Plazas
+import com.example.proyectoalmacen.model.DataClasses.Usuario
 import com.example.proyectoalmacen.model.States.EstadilloState
 import com.example.proyectoalmacen.model.States.ExpedicionState
 import com.example.proyectoalmacen.model.States.UiState
@@ -537,7 +538,7 @@ fun ItemRowListaPlazasRepasar(item: Plazas, navigateToRepaso: (numPlaza: Int) ->
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun Tab4Content(hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
+fun Tab4Content(usuarioViewModel: UsuarioViewModel = hiltViewModel(),hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }) {
     val uiStateHojasCarga by hojasCargaViewModel.hojasCargaList.collectAsState()
     var loadingHojasCarga by remember { mutableStateOf(false) }
     val hojasCarga by remember {
@@ -556,6 +557,24 @@ fun Tab4Content(hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), navig
         }
         is UiState.Error -> Log.e("Expediciones Error,", (uiStateHojasCarga as UiState.Error).message)
     }
+    val uiStateUsuarios by usuarioViewModel.usuariosList.collectAsState()
+    var loadingUsuarios by remember { mutableStateOf(false) }
+    val usuarios by remember {
+        derivedStateOf {
+            (uiStateUsuarios as? UiState.Success<List<Usuario>>)?.data ?: emptyList()
+        }
+    }
+    when (uiStateUsuarios) {
+        is UiState.Loading -> {
+            loadingUsuarios = true
+            CustomLoader(loadingUsuarios)
+        }
+        is UiState.Success -> {
+            loadingUsuarios = false
+            Log.i("Expediciones Success", "${(uiStateUsuarios as UiState.Success<*>).data}")
+        }
+        is UiState.Error -> Log.e("Expediciones Error,", (uiStateUsuarios as UiState.Error).message)
+    }
     Column(
         modifier = Modifier
             .fillMaxSize(),
@@ -565,27 +584,25 @@ fun Tab4Content(hojasCargaViewModel: HojaCargaViewModel = hiltViewModel(), navig
         var createHojaCargaDialogisVisible by remember { mutableStateOf(false) }
         CustomIconButton(text = stringResource(R.string.crear_text), icon = Icons.Filled.Add, onClick = { createHojaCargaDialogisVisible = !createHojaCargaDialogisVisible })
         if (createHojaCargaDialogisVisible) {
-            CreateCargaScreen(onDismissRequest = {}, navigateToCarga = navigateToCarga)
+            CreateCargaScreen(onDismissRequest = { createHojaCargaDialogisVisible = false}, navigateToCarga = navigateToCarga)
         }
         LazyColumn(modifier = Modifier
             .fillMaxSize()
             .padding(10.dp)
         ) {
             items(hojasCarga) { item ->
-                ItemRowListaHojasCarga(item = item, navigateToCarga)
+                ItemRowListaHojasCarga(item = item, navigateToCarga = navigateToCarga, nombreChofer = usuarios.find { it.numUsuario == item.idUsuario }?.nombre ?: "")
             }
         }
     }
 }
 
 @Composable
-fun ItemRowListaHojasCarga(item: HojaCarga, navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }){
-    val usuarioViewModel: UsuarioViewModel = hiltViewModel()
-    val expedicionViewModel: ExpedicionViewModel = hiltViewModel()
-    val plazasViewModel: PlazasViewModel = hiltViewModel()
+fun ItemRowListaHojasCarga(nombreChofer:String,plazasViewModel: PlazasViewModel = hiltViewModel(),expedicionViewModel: ExpedicionViewModel = hiltViewModel(),item: HojaCarga, navigateToCarga: (plazas: List<Int>) -> Unit = { plazas: List<Int> -> }){
     var bultosTotales = 0
     var bultosCargados = 0
     var plazas = ""
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -607,7 +624,7 @@ fun ItemRowListaHojasCarga(item: HojaCarga, navigateToCarga: (plazas: List<Int>)
                 Spacer(modifier = Modifier.width(15.dp))
                 CustomTextView(type = TextViewType.SINGLE, mainText = stringResource(R.string.autor_text), config = TextViewConfig(mainTextFontSize = 18.sp, mainTextColor = colorScheme.tertiary))
                 Spacer(modifier = Modifier.width(5.dp))
-                CustomTextView(type = TextViewType.SINGLE, mainText = usuarioViewModel.getUsuarioById(item.idUsuario).nombre, config = TextViewConfig(mainTextFontSize = 18.sp))
+                CustomTextView(type = TextViewType.SINGLE, mainText = nombreChofer, config = TextViewConfig(mainTextFontSize = 18.sp))
             }
             Row (modifier = Modifier
                 .padding(1.dp)

@@ -57,7 +57,7 @@ import com.example.proyectoalmacen.viewmodel.PlazasViewModel
 @Composable
 fun CargaScreen(navController: NavController, plazas:List<Int>, bultoViewModel: BultoViewModel = hiltViewModel(), expedicionViewModel: ExpedicionViewModel = hiltViewModel()){
     var showDialog by remember { mutableStateOf(false) }
-    var estadoDialogo: EstadoDialogo = EstadoDialogo.ENCONTRADO
+    var estadoDialogo by remember { mutableStateOf(EstadoDialogo.ENCONTRADO)}
     val focusRequester = remember { FocusRequester() }
     var myTextFieldValue by remember { mutableStateOf("") }
     var dialogTimer by remember { mutableStateOf(0L) }
@@ -141,7 +141,7 @@ fun CargaScreen(navController: NavController, plazas:List<Int>, bultoViewModel: 
 
             LaunchedEffect(key1 = bultos) {
                 if(!loadingBultos && myTextFieldValue.isNotEmpty()){
-                    if (bultos.firstOrNull() != null) {
+                    if (bultos.firstOrNull() != null && bultos.first().estadoBulto != EstadoBulto.CREADO) {
                         estadoDialogo =
                             if (bultos.first().estadoBulto == EstadoBulto.CARGADO) EstadoDialogo.REPETIDO else EstadoDialogo.ENCONTRADO
                     } else {

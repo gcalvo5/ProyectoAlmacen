@@ -6,6 +6,7 @@ import com.example.proyectoalmacen.model.DataClasses.Estadillo
 import com.example.proyectoalmacen.model.DataClasses.EstadoBulto
 import com.example.proyectoalmacen.model.DataClasses.Expedicion
 import com.example.proyectoalmacen.model.DataClasses.HojaCarga
+import com.example.proyectoalmacen.model.DataClasses.Usuario
 import com.example.proyectoalmacen.model.States.UiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ class DataManager @Inject constructor(private val externalScope: CoroutineScope)
 
     private val _hojasCargaListState = MutableStateFlow<UiState<List<HojaCarga>>>(UiState.Loading)
 
+    private val _usuariosListState = MutableStateFlow<UiState<List<Usuario>>>(UiState.Loading)
 
     val expedicionesListState: StateFlow<UiState<List<Expedicion>>> = combine(_expedicionesListState, _bultosListState) { expedicionesState, bultosState ->
         if (expedicionesState is UiState.Success && bultosState is UiState.Success) {
@@ -148,7 +150,7 @@ class DataManager @Inject constructor(private val externalScope: CoroutineScope)
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = UiState.Loading)
     val bultosListStateFiltred: StateFlow<UiState<List<Bulto>>> = _bultosListStateFiltred
-
+    val usuariosListState: StateFlow<UiState<List<Usuario>>> = _usuariosListState
 
 
     fun updateExpedicionList(expediciones: UiState<List<Expedicion>>) {
@@ -165,6 +167,10 @@ class DataManager @Inject constructor(private val externalScope: CoroutineScope)
 
     fun updateHojasCargaList(hojasCarga: UiState<List<HojaCarga>>) {
         _hojasCargaListState.value = hojasCarga
+    }
+
+    fun updateUsuariosList(usuarios: UiState<List<Usuario>>) {
+        _usuariosListState.value = usuarios
     }
 
     fun updateExpedicionListFiltred(expediciones: UiState<List<Expedicion>>) {

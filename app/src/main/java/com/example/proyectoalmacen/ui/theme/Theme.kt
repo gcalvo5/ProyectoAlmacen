@@ -38,7 +38,9 @@ private val DarkColorScheme = darkColorScheme(
     // SuccessContainer
     surfaceContainerLow = Green20,
     // InfoContainer
-    surfaceContainerHigh = Orange30
+    surfaceContainerHigh = Orange30,
+    // BlueContainer
+    surfaceContainerLowest = Blue50
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -61,7 +63,9 @@ private val LightColorScheme = lightColorScheme(
     // SuccessContainer
     surfaceContainerLow = Green95,
     // InfoContainer
-    surfaceContainerHigh = Orange80
+    surfaceContainerHigh = Orange80,
+    // BlueContainer
+    surfaceContainerLowest = Blue80
 )
 
 @Composable

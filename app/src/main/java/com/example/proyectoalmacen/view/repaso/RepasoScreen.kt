@@ -171,7 +171,7 @@ fun RepasoScreen(plazasViewModel: PlazasViewModel = hiltViewModel(),expedicionVi
 
             LaunchedEffect(key1 = bultos) {
                 if(!loadingBultos && myTextFieldValue.isNotEmpty()){
-                    if (bultos.firstOrNull() != null) {
+                    if (bultos.firstOrNull() != null && bultos.first().estadoBulto != EstadoBulto.CREADO) {
                         estadoDialogo =
                             if (bultos.first().estadoBulto == EstadoBulto.REPASADO || bultos.first().estadoBulto == EstadoBulto.CARGADO) EstadoDialogo.REPETIDO else EstadoDialogo.ENCONTRADO
                     } else {
